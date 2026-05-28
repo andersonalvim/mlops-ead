@@ -1,324 +1,93 @@
-{
-  "nbformat": 4,
-  "nbformat_minor": 0,
-  "metadata": {
-    "colab": {
-      "provenance": []
-    },
-    "kernelspec": {
-      "name": "python3",
-      "display_name": "Python 3"
-    },
-    "language_info": {
-      "name": "python"
-    }
-  },
-  "cells": [
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# **Cultura e Práticas em DataOps e MLOps**\n",
-        "**Autor**: Renan Santos Mendes\n",
-        "\n",
-        "**Email**: renansantosmendes@gmail.com\n",
-        "\n",
-        "**Descrição**: Este notebook apresenta um exemplo de uma rede neural profunda com mais de uma camada para um problema de classificação.\n",
-        "\n",
-        "\n",
-        "# **Saúde Fetal**\n",
-        "\n",
-        "As Cardiotocografias (CTGs) são opções simples e de baixo custo para avaliar a saúde fetal, permitindo que os profissionais de saúde atuem na prevenção da mortalidade infantil e materna. O próprio equipamento funciona enviando pulsos de ultrassom e lendo sua resposta, lançando luz sobre a frequência cardíaca fetal (FCF), movimentos fetais, contrações uterinas e muito mais.\n",
-        "\n",
-        "Este conjunto de dados contém 2126 registros de características extraídas de exames de Cardiotocografias, que foram então classificados por três obstetras especialistas em 3 classes:\n",
-        "\n",
-        "- Normal\n",
-        "- Suspeito\n",
-        "- Patológico"
-      ],
-      "metadata": {
-        "id": "yYryuRDeqbxK"
-      }
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# Instalando pacotes"
-      ],
-      "metadata": {
-        "id": "MkB47-my-kq9"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "%%capture\n",
-        "!pip install mlflow"
-      ],
-      "metadata": {
-        "id": "bRE1wGJ9-jxZ"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# 1 - Importando os módulos necessários"
-      ],
-      "metadata": {
-        "id": "4WgsLeJngPb1"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "import os\n",
-        "import random\n",
-        "import numpy as np\n",
-        "import random as python_random\n",
-        "import tensorflow\n",
-        "import tensorflow as tf\n",
-        "from tensorflow import keras\n",
-        "from keras.models import Sequential\n",
-        "from keras.layers import Dense, InputLayer\n",
-        "from keras.utils import to_categorical\n",
-        "\n",
-        "import pandas as pd\n",
-        "import matplotlib.pyplot as plt\n",
-        "from sklearn import preprocessing\n",
-        "from sklearn.preprocessing import StandardScaler\n",
-        "from sklearn.model_selection import train_test_split"
-      ],
-      "metadata": {
-        "id": "55YREGWfhXuu"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# Definindo funções adicionais"
-      ],
-      "metadata": {
-        "id": "NFTzaAkEr-IP"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "def reset_seeds() -> None:\n",
-        "  \"\"\"\n",
-        "  Resets the seeds to ensure reproducibility of results.\n",
-        "\n",
-        "  This function sets the seed for various random number generation libraries\n",
-        "  to ensure that results are reproducible. The affected libraries are:\n",
-        "  - Python's built-in `random`\n",
-        "  - NumPy\n",
-        "  - TensorFlow\n",
-        "\n",
-        "  The seed used is 42.\n",
-        "\n",
-        "  Returns:\n",
-        "      None\n",
-        "  \"\"\"\n",
-        "  os.environ['PYTHONHASHSEED']=str(42)\n",
-        "  tf.random.set_seed(42)\n",
-        "  np.random.seed(42)\n",
-        "  random.seed(42)"
-      ],
-      "metadata": {
-        "id": "OgKUlrlbozyR"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# 2 - Fazendo a leitura do dataset e atribuindo às respectivas variáveis"
-      ],
-      "metadata": {
-        "id": "I5uGdrdeh0QG"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "url = 'raw.githubusercontent.com'\n",
-        "username = 'renansantosmendes'\n",
-        "repository = 'lectures-cdas-2023'\n",
-        "file_name = 'fetal_health_reduced.csv'\n",
-        "data = pd.read_csv(f'https://{url}/{username}/{repository}/master/{file_name}')"
-      ],
-      "metadata": {
-        "id": "95168wcThmD2"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# Dando uma leve olhada nos dados"
-      ],
-      "metadata": {
-        "id": "TEM30W0agQA_"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "data.head()"
-      ],
-      "metadata": {
-        "id": "HkQ-JIfWo3Wh"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# 3 - Preparando o dado antes de iniciar o treino do modelo"
-      ],
-      "metadata": {
-        "id": "1eQEA-fzgQ0G"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "X=data.drop([\"fetal_health\"], axis=1)\n",
-        "y=data[\"fetal_health\"]\n",
-        "\n",
-        "columns_names = list(X.columns)\n",
-        "scaler = preprocessing.StandardScaler()\n",
-        "X_df = scaler.fit_transform(X)\n",
-        "X_df = pd.DataFrame(X_df, columns=columns_names)\n",
-        "\n",
-        "X_train, X_test, y_train, y_test = train_test_split(X_df,\n",
-        "                                                    y,\n",
-        "                                                    test_size=0.3,\n",
-        "                                                    random_state=42)\n",
-        "\n",
-        "y_train = y_train -1\n",
-        "y_test = y_test - 1"
-      ],
-      "metadata": {
-        "id": "jBK7SgPxh7YY"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# 4 - Criando o modelo e adicionando as camadas"
-      ],
-      "metadata": {
-        "id": "54CmcOG1gRn9"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "reset_seeds()\n",
-        "model = Sequential()\n",
-        "model.add(InputLayer(input_shape=(X_train.shape[1], )))\n",
-        "model.add(Dense(units=10, activation='relu'))\n",
-        "model.add(Dense(units=10, activation='relu'))\n",
-        "model.add(Dense(units=3, activation='softmax'))"
-      ],
-      "metadata": {
-        "id": "4y2kKy_EkLGt"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# 5 - Compilando o modelo\n"
-      ],
-      "metadata": {
-        "id": "E0JmDrz6iQDw"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "model.compile(loss='sparse_categorical_crossentropy',\n",
-        "              optimizer='adam',\n",
-        "              metrics=['accuracy'])"
-      ],
-      "metadata": {
-        "id": "7IeY0b4i1gQj"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "##**Configurando o mlflow**"
-      ],
-      "metadata": {
-        "id": "KTO_8Ky9idGZ"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "import mlflow\n",
-        "\n",
-        "os.environ['MLFLOW_TRACKING_USERNAME'] = 'renansantosmendes'\n",
-        "os.environ['MLFLOW_TRACKING_PASSWORD'] = '6d730ef4a90b1caf28fbb01e5748f0874fda6077'\n",
-        "mlflow.set_tracking_uri('https://dagshub.com/renansantosmendes/puc_lectures_mlops.mlflow')\n",
-        "\n",
-        "mlflow.keras.autolog(log_models=True,\n",
-        "                     log_input_examples=True,\n",
-        "                     log_model_signatures=True)"
-      ],
-      "metadata": {
-        "id": "9RlCNYss91nf"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "markdown",
-      "source": [
-        "# 6 - Executando o treino do modelo"
-      ],
-      "metadata": {
-        "id": "MoHbKkvCim-p"
-      }
-    },
-    {
-      "cell_type": "code",
-      "source": [
-        "with mlflow.start_run(run_name='experiment_mlops_ead') as run:\n",
-        "  model.fit(X_train,\n",
-        "            y_train,\n",
-        "            epochs=50,\n",
-        "            validation_split=0.2,\n",
-        "            verbose=3)"
-      ],
-      "metadata": {
-        "id": "w8IX2tHI2VX4"
-      },
-      "execution_count": null,
-      "outputs": []
-    },
-    {
-      "cell_type": "code",
-      "source": [],
-      "metadata": {
-        "id": "T6U0Jydaivi0"
-      },
-      "execution_count": null,
-      "outputs": []
-    }
-  ]
-}
+%%capture
+!pip install mlflow
+
+import os
+import random
+import numpy as np
+import random as python_random
+import tensorflow
+import tensorflow as tf
+from tensorflow import keras
+from keras.models import Sequential
+from keras.layers import Dense, InputLayer
+from keras.utils import to_categorical
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+
+def reset_seeds() -> None:
+  """
+  Resets the seeds to ensure reproducibility of results.
+
+  This function sets the seed for various random number generation libraries
+  to ensure that results are reproducible. The affected libraries are:
+  - Python's built-in `random`
+  - NumPy
+  - TensorFlow
+
+  The seed used is 42.
+
+  Returns:
+      None
+  """
+  os.environ['PYTHONHASHSEED']=str(42)
+  tf.random.set_seed(42)
+  np.random.seed(42)
+  random.seed(42)
+
+url = 'raw.githubusercontent.com'
+username = 'renansantosmendes'
+repository = 'lectures-cdas-2023'
+file_name = 'fetal_health_reduced.csv'
+data = pd.read_csv(f'https://{url}/{username}/{repository}/master/{file_name}')
+
+data.head()
+
+X=data.drop(["fetal_health"], axis=1)
+y=data["fetal_health"]
+
+columns_names = list(X.columns)
+scaler = preprocessing.StandardScaler()
+X_df = scaler.fit_transform(X)
+X_df = pd.DataFrame(X_df, columns=columns_names)
+
+X_train, X_test, y_train, y_test = train_test_split(X_df,
+                                                    y,
+                                                    test_size=0.3,
+                                                    random_state=42)
+
+y_train = y_train -1
+y_test = y_test - 1
+
+reset_seeds()
+model = Sequential()
+model.add(InputLayer(input_shape=(X_train.shape[1], )))
+model.add(Dense(units=10, activation='relu'))
+model.add(Dense(units=10, activation='relu'))
+model.add(Dense(units=3, activation='softmax'))
+
+model.compile(loss='sparse_categorical_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+import mlflow
+
+os.environ['MLFLOW_TRACKING_USERNAME'] = 'renansantosmendes'
+os.environ['MLFLOW_TRACKING_PASSWORD'] = '6d730ef4a90b1caf28fbb01e5748f0874fda6077'
+mlflow.set_tracking_uri('https://dagshub.com/renansantosmendes/puc_lectures_mlops.mlflow')
+
+mlflow.keras.autolog(log_models=True,
+                     log_input_examples=True,
+                     log_model_signatures=True)
+
+with mlflow.start_run(run_name='experiment_mlops_ead') as run:
+  model.fit(X_train,
+            y_train,
+            epochs=50,
+            validation_split=0.2,
+            verbose=3)
+
+

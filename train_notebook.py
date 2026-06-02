@@ -1,5 +1,5 @@
-%%capture
-!pip install mlflow
+#%%capture
+#!pip install mlflow
 
 import os
 import random
